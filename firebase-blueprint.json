@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "theme": { "type": "string", "enum": ["light", "dark", "system"] },
+        "accentColor": { "type": "string", "enum": ["black", "red", "blue", "green", "yellow"] }
+      },
+      "required": ["uid", "email"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Task categories",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "iconName": { "type": "string" },
+        "uid": { "type": "string" }
+      },
+      "required": ["id", "name", "color", "iconName", "uid"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "User tasks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "location": { "type": "string" },
+        "date": { "type": "string" },
+        "timePeriod": { "type": "string" },
+        "specificTime": { "type": "string" },
+        "description": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "uid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "date", "timePeriod", "categoryId", "completed", "uid"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Private user data"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User custom categories"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "User tasks"
+    }
+  }
+}

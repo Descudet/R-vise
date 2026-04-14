@@ -1,0 +1,125 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (matches request.auth.uid)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - theme: string (optional: light, dark, system)
+    //   - accentColor: string (optional: black, red, blue, green, yellow)
+    //
+    // Collection: categories
+    // Document ID: {categoryId}
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required, max 50 chars)
+    //   - color: string (required, hex format)
+    //   - iconName: string (required)
+    //   - uid: string (required, matches owner)
+    //
+    // Collection: tasks
+    // Document ID: {taskId}
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required, max 100 chars)
+    //   - location: string (optional)
+    //   - date: string (required, YYYY-MM-DD)
+    //   - timePeriod: string (required)
+    //   - specificTime: string (optional)
+    //   - description: string (optional, max 2000 chars)
+    //   - categoryId: string (required)
+    //   - completed: bool (required)
+    //   - uid: string (required, matches owner)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isRequestOwner() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.uid;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidHexColor(color) {
+      return color is string && color.matches("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             (!('theme' in data) || data.theme in ['light', 'dark', 'system']) &&
+             (!('accentColor' in data) || data.accentColor in ['black', 'red', 'blue', 'green', 'yellow']);
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['id', 'name', 'color', 'iconName', 'uid']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 50 &&
+             isValidHexColor(data.color) &&
+             data.iconName is string;
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['id', 'name', 'date', 'timePeriod', 'categoryId', 'completed', 'uid']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.completed is bool &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.uid == request.auth.uid);
+      allow create: if isAuthenticated() && isValidCategory(request.resource.data);
+      allow update: if isDocOwner() && isValidCategory(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.uid == request.auth.uid);
+      allow create: if isAuthenticated() && isValidTask(request.resource.data);
+      allow update: if isDocOwner() && isValidTask(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+  }
+}
